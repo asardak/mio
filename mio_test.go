@@ -1,4 +1,4 @@
-package meteredwriter
+package mio
 
 import (
 	"io"
@@ -10,9 +10,9 @@ import (
 	"github.com/artyom/metrics"
 )
 
-func TestMeteredWriterBasic(t *testing.T) {
+func TestWriterBasic(t *testing.T) {
 	histogram := metrics.NewHistogram(metrics.NewUniformSample(100))
-	mw := NewMeteredWriter(ioutil.Discard, histogram)
+	mw := NewWriter(ioutil.Discard, histogram)
 	file, err := os.Open(os.Args[0])
 	if err != nil {
 		t.Fatal("failed to open file:", err)
@@ -33,11 +33,11 @@ func TestMeteredWriterBasic(t *testing.T) {
 	}
 }
 
-func TestMeteredWriterSelfCleaning(t *testing.T) {
+func TestWriterSelfCleaning(t *testing.T) {
 	histogram := NewSelfCleaningHistogram(
 		metrics.NewHistogram(metrics.NewUniformSample(100)),
 		150*time.Millisecond)
-	mw := NewMeteredWriter(ioutil.Discard, histogram)
+	mw := NewWriter(ioutil.Discard, histogram)
 	file, err := os.Open(os.Args[0])
 	if err != nil {
 		t.Fatal("failed to open file:", err)
