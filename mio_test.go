@@ -10,6 +10,21 @@ import (
 	"github.com/artyom/metrics"
 )
 
+func TestWriterDoubleClose(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatal("double close caused panic:", r)
+		}
+	}()
+	histogram := NewSelfCleaningHistogram(
+		metrics.NewHistogram(metrics.NewUniformSample(100)),
+		150*time.Millisecond)
+	mw := NewWriter(ioutil.Discard, histogram)
+	t.Log("testing double Close(), should call Done() on underlying Registrar only once")
+	mw.Close()
+	mw.Close()
+}
+
 func TestWriterBasic(t *testing.T) {
 	histogram := metrics.NewHistogram(metrics.NewUniformSample(100))
 	mw := NewWriter(ioutil.Discard, histogram)

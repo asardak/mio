@@ -118,3 +118,22 @@ func TestReaderSelfCleaning(t *testing.T) {
 		t.Fatal("histogram should be empty, but has samples:", cnt)
 	}
 }
+
+func TestReaderDoubleClose(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatal("double close caused panic:", r)
+		}
+	}()
+	histogram := NewSelfCleaningHistogram(
+		metrics.NewHistogram(metrics.NewUniformSample(100)),
+		150*time.Millisecond)
+	file, err := os.Open(os.Args[0])
+	if err != nil {
+		t.Fatal("failed to open file:", err)
+	}
+	mr := NewReader(file, histogram)
+	t.Log("testing double Close(), should call Done() on underlying Registrar only once")
+	mr.Close()
+	mr.Close()
+}

@@ -9,7 +9,8 @@ import (
 // attached histogram
 type Writer struct {
 	io.Writer
-	h Histogram
+	h      Histogram
+	closed bool
 }
 
 // NewWriter attaches provided histogram to writer, returning new
@@ -44,6 +45,10 @@ func (mw *Writer) Write(p []byte) (n int, err error) {
 // io.Closer, calling this method would also close it. If attached histogram
 // also implements Registrar interface, this would call its Done() method.
 func (mw *Writer) Close() error {
+	if mw.closed {
+		return nil
+	}
+	mw.closed = true
 	if r, ok := mw.h.(Registrar); ok {
 		r.Done()
 	}

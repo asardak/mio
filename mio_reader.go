@@ -9,7 +9,8 @@ import (
 // histogram
 type Reader struct {
 	io.Reader
-	h Histogram
+	h      Histogram
+	closed bool
 }
 
 // NewReader attaches provided histogram to reader, returning new
@@ -44,6 +45,10 @@ func (mr *Reader) Read(p []byte) (n int, err error) {
 // io.Closer, calling this method would also close it. If attached histogram
 // also implements Registrar interface, this would call its Done() method.
 func (mr *Reader) Close() error {
+	if mr.closed {
+		return nil
+	}
+	mr.closed = true
 	if r, ok := mr.h.(Registrar); ok {
 		r.Done()
 	}
