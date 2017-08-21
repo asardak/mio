@@ -13,7 +13,7 @@
 package mio
 
 import (
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -41,9 +41,9 @@ type Histogram interface {
 // absence of Register() calls before timer fires.
 type SelfCleaningHistogram struct {
 	Histogram
-	c, q   chan struct{}
-	closed bool
-	wg     sync.WaitGroup
+	c, q, d chan struct{}
+	closed  bool
+	cnt     uint64
 }
 
 // Registrar interface can be used to track object's concurrent usage.
@@ -68,6 +68,7 @@ func NewSelfCleaningHistogram(histogram Histogram, delay time.Duration) *SelfCle
 		Histogram: histogram,
 		c:         make(chan struct{}),
 		q:         make(chan struct{}),
+		d:         make(chan struct{}, 1),
 	}
 	// make sure goroutine is started before returning
 	guard := make(chan struct{})
@@ -93,7 +94,7 @@ func (h *SelfCleaningHistogram) decay(delay time.Duration, guard chan<- struct{}
 		if t != nil {
 			t.Stop()
 		}
-		h.wg.Wait()
+		<-h.d
 		t = time.AfterFunc(delay, h.Clear)
 	}
 }
@@ -102,7 +103,7 @@ func (h *SelfCleaningHistogram) decay(delay time.Duration, guard chan<- struct{}
 // call, blocking self-cleaning timer until all object's users releases it with
 // Done() call.
 func (h *SelfCleaningHistogram) Register() {
-	h.wg.Add(1)
+	atomic.AddUint64(&h.cnt, 1)
 	select {
 	case h.c <- struct{}{}:
 	default:
@@ -112,7 +113,13 @@ func (h *SelfCleaningHistogram) Register() {
 // Done implements Registrar interface, using sync.WaitGroup.Done() for each
 // call.
 func (h *SelfCleaningHistogram) Done() {
-	h.wg.Done()
+	cnt := atomic.AddUint64(&h.cnt, ^uint64(0))
+	if cnt == 0 {
+		select {
+		case h.d <- struct{}{}:
+		default:
+		}
+	}
 }
 
 // Shutdown implements Registrar interface, it stops background goroutine. This

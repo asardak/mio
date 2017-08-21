@@ -142,3 +142,25 @@ func TestSelfCleaningHistogram_Shutdown(t *testing.T) {
 		t.Fatal("should have 3 registered samples, got:", cnt)
 	}
 }
+
+func TestSelfCleaningHistogram_Register_concurrent(t *testing.T) {
+	sh := NewSelfCleaningHistogram(
+		metrics.NewHistogram(metrics.NewUniformSample(100)),
+		10*time.Millisecond)
+
+	const c = 100000
+	for range [c]int{} {
+		go func() {
+			sh.Register()
+			sh.Update(100)
+			sh.Done()
+		}()
+	}
+
+	sh.Shutdown()
+
+	time.Sleep(20 * time.Millisecond)
+	if cnt := sh.Count(); cnt != c {
+		t.Fatalf("should have %v registered samples, got: %v", c, cnt)
+	}
+}
